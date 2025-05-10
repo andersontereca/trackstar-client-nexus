@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -130,6 +129,53 @@ const Dashboard = () => {
     }
   };
   
+  // Função modificada para rastrear diretamente pela API Wonca
+  const fetchSingleStatus = async (rowIndex: number) => {
+    const codigo = tableData[rowIndex][CODE_INDEX];
+    if (!codigo || codigo === 'N/A') {
+      toast.error("Código de rastreio inválido.");
+      return;
+    }
+
+    try {
+      toast.info(`Buscando informações para o código ${codigo}...`);
+      
+      // Chamada direta para a API Wonca
+      const response = await fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Apikey oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU'
+        },
+        body: JSON.stringify({ code: codigo })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Status: ${response.status}`);
+      }
+      
+      const apiResponse = await response.json();
+      
+      if (!apiResponse || !apiResponse.json) {
+        throw new Error('Resposta inválida da API');
+      }
+      
+      const dados = JSON.parse(apiResponse.json || '{}');
+      const statusAtual = (dados.eventos && dados.eventos[0] && dados.eventos[0].descricaoFrontEnd) || 'Status não disponível';
+      const dataAtualizacao = (dados.eventos && dados.eventos[0] && dados.eventos[0].dtHrCriado && dados.eventos[0].dtHrCriado.date) || 'Data não disponível';
+      
+      const newTableData = [...tableData];
+      newTableData[rowIndex][TRACKING_STATUS_INDEX] = statusAtual;
+      setTableData(newTableData);
+      localStorage.setItem('clientData', JSON.stringify(newTableData));
+      
+      toast.success("Status atualizado!");
+    } catch (err) {
+      console.error("Erro detalhado:", err);
+      toast.error("Erro ao buscar status do pedido.");
+    }
+  };
+
   const updateAllTracking = async () => {
     if (tableData.length === 0) {
       toast.error("Não há dados para atualizar.");
@@ -157,8 +203,8 @@ const Dashboard = () => {
       return;
     }
 
-    // Processa em lotes de 5 por segundo
-    const loteSize = 5;
+    // Processa em lotes de 3 por segundo para evitar sobrecarga da API
+    const loteSize = 3;
     const newTableData = [...tableData];
     
     for (let i = 0; i < codigosParaAtualizar.length; i += loteSize) {
@@ -166,18 +212,27 @@ const Dashboard = () => {
 
       try {
         const promessas = lote.map(({ codigo, index }) =>
-          fetch(`rastreio.php?codigo=${codigo}`, {
+          fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
+            method: 'POST',
             headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
+              'Content-Type': 'application/json',
+              'Authorization': 'Apikey oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU'
+            },
+            body: JSON.stringify({ code: codigo })
           })
             .then(res => {
               if (!res.ok) throw new Error(`Status: ${res.status}`);
               return res.json();
             })
-            .then(data => {
-              newTableData[index][TRACKING_STATUS_INDEX] = data?.status || 'N/A';
+            .then(apiResponse => {
+              if (!apiResponse || !apiResponse.json) {
+                throw new Error('Resposta inválida da API');
+              }
+              
+              const dados = JSON.parse(apiResponse.json || '{}');
+              const statusAtual = (dados.eventos && dados.eventos[0] && dados.eventos[0].descricaoFrontEnd) || 'Status não disponível';
+              
+              newTableData[index][TRACKING_STATUS_INDEX] = statusAtual;
               count++;
             })
             .catch(e => {
@@ -205,39 +260,6 @@ const Dashboard = () => {
     newTableData[row][col] = value;
     setTableData(newTableData);
     localStorage.setItem('clientData', JSON.stringify(newTableData));
-  };
-
-  const fetchSingleStatus = async (rowIndex: number) => {
-    const codigo = tableData[rowIndex][CODE_INDEX];
-    if (!codigo || codigo === 'N/A') {
-      toast.error("Código de rastreio inválido.");
-      return;
-    }
-
-    try {
-      const response = await fetch(`rastreio.php?codigo=${codigo}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      const newTableData = [...tableData];
-      newTableData[rowIndex][TRACKING_STATUS_INDEX] = data?.status || 'N/A';
-      setTableData(newTableData);
-      localStorage.setItem('clientData', JSON.stringify(newTableData));
-      
-      toast.success("Status atualizado!");
-    } catch (err) {
-      console.error("Erro detalhado:", err);
-      toast.error("Erro ao buscar status do pedido.");
-    }
   };
 
   return (
