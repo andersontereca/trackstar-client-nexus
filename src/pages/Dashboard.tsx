@@ -164,20 +164,29 @@ const Dashboard = () => {
     for (let i = 0; i < codigosParaAtualizar.length; i += loteSize) {
       const lote = codigosParaAtualizar.slice(i, i + loteSize);
 
-      const promessas = lote.map(({ codigo, index }) =>
-        fetch(`rastreio.php?codigo=${codigo}`)
-          .then(res => res.json())
-          .then(data => {
-            newTableData[index][TRACKING_STATUS_INDEX] = data?.status || 'N/A';
-            count++;
-          })
-          .catch(e => {
-            console.error(`Erro no código ${codigo}:`, e);
-          })
-      );
+      try {
+        const promessas = lote.map(({ codigo, index }) =>
+          fetch(`rastreio.php?codigo=${codigo}`)
+            .then(res => {
+              if (!res.ok) throw new Error(`Status: ${res.status}`);
+              return res.json();
+            })
+            .then(data => {
+              newTableData[index][TRACKING_STATUS_INDEX] = data?.status || 'N/A';
+              count++;
+            })
+            .catch(e => {
+              console.error(`Erro no código ${codigo}:`, e);
+              // Adicionar mensagem de erro específica ao status
+              newTableData[index][TRACKING_STATUS_INDEX] = 'Erro ao rastrear';
+            })
+        );
 
-      await Promise.all(promessas);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo entre os lotes
+        await Promise.all(promessas);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo entre os lotes
+      } catch (error) {
+        console.error("Erro ao processar lote de rastreamentos:", error);
+      }
     }
 
     setTableData(newTableData);
@@ -202,6 +211,9 @@ const Dashboard = () => {
 
     try {
       const response = await fetch(`rastreio.php?codigo=${codigo}`);
+      if (!response.ok) {
+        throw new Error(`Status: ${response.status}`);
+      }
       const data = await response.json();
       
       const newTableData = [...tableData];
