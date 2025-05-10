@@ -166,7 +166,12 @@ const Dashboard = () => {
 
       try {
         const promessas = lote.map(({ codigo, index }) =>
-          fetch(`rastreio.php?codigo=${codigo}`)
+          fetch(`rastreio.php?codigo=${codigo}`, {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          })
             .then(res => {
               if (!res.ok) throw new Error(`Status: ${res.status}`);
               return res.json();
@@ -210,10 +215,17 @@ const Dashboard = () => {
     }
 
     try {
-      const response = await fetch(`rastreio.php?codigo=${codigo}`);
+      const response = await fetch(`rastreio.php?codigo=${codigo}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
       if (!response.ok) {
         throw new Error(`Status: ${response.status}`);
       }
+      
       const data = await response.json();
       
       const newTableData = [...tableData];
@@ -223,8 +235,8 @@ const Dashboard = () => {
       
       toast.success("Status atualizado!");
     } catch (err) {
+      console.error("Erro detalhado:", err);
       toast.error("Erro ao buscar status do pedido.");
-      console.error(err);
     }
   };
 
