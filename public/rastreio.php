@@ -2,7 +2,7 @@
 <?php
 // Set headers to allow cross-origin requests
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
@@ -11,51 +11,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Get POST data
-$postData = json_decode(file_get_contents('php://input'), true);
+// Get input data from POST or GET
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $postData = json_decode(file_get_contents('php://input'), true);
+    $code = $postData['code'] ?? '';
+    $token = $postData['token'] ?? 'oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU';
+} else {
+    $code = $_GET['codigo'] ?? '';
+    $token = $_GET['token'] ?? 'oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU';
+}
 
-if (!isset($postData['code']) || !isset($postData['token'])) {
-    echo json_encode(['error' => 'Código de rastreamento ou token não informado.']);
+// Validate input
+if (!$code) {
+    echo json_encode(['error' => 'Código de rastreamento não informado.']);
     exit;
 }
 
-$code = $postData['code'];
-$token = $postData['token'];
+// Make API request using stream context (native PHP approach)
+$url = 'https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track';
+$data = ['code' => $code];
 
-// Make request to Wonca API
-$ch = curl_init();
+$options = [
+    'http' => [
+        'header'  => "Content-Type: application/json\r\n" .
+                     "Authorization: Apikey " . $token,
+        'method'  => 'POST',
+        'content' => json_encode($data),
+        'ignore_errors' => true
+    ]
+];
 
-curl_setopt_array($ch, [
-    CURLOPT_URL => "https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track",
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_ENCODING => "",
-    CURLOPT_MAXREDIRS => 10,
-    CURLOPT_TIMEOUT => 30,
-    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-    CURLOPT_CUSTOMREQUEST => "POST",
-    CURLOPT_POSTFIELDS => json_encode(['code' => $code]),
-    CURLOPT_HTTPHEADER => [
-        "Content-Type: application/json",
-        "Authorization: Apikey " . $token
-    ],
-]);
+$context = stream_context_create($options);
+$response = @file_get_contents($url, false, $context);
 
-$response = curl_exec($ch);
-$err = curl_error($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-curl_close($ch);
-
-if ($err) {
-    echo json_encode(['error' => 'Curl Error: ' . $err]);
-    exit;
-}
-
-if ($httpCode !== 200) {
-    echo json_encode(['error' => 'API Error: HTTP ' . $httpCode]);
+// Check for errors
+if ($response === false) {
+    echo json_encode(['error' => 'Erro ao acessar a API da Wonca.']);
     exit;
 }
 
 // Return the API response
-echo $response;
+echo json_encode(['json' => $response]);
 ?>
