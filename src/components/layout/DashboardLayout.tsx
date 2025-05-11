@@ -1,11 +1,11 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { 
   Menu, X, Home, Package, Users, Settings, LogOut, Activity,
-  BarChart, HelpCircle, Bell, Search, ChevronDown
+  BarChart, HelpCircle, Bell, Search, ChevronDown, User
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -17,6 +17,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const handleLogout = () => {
@@ -30,6 +31,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+  
+  // Função para verificar se o link está ativo
+  const isActive = (path: string) => {
+    return location.pathname === path;
   };
 
   return (
@@ -79,26 +85,27 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
             <div className="space-y-1 px-2">
               {[
-                { icon: <Home size={18} />, text: "Dashboard", active: true },
-                { icon: <Package size={18} />, text: "Pedidos" },
-                { icon: <Users size={18} />, text: "Clientes" },
-                { icon: <Activity size={18} />, text: "Rastreamento" },
-                { icon: <BarChart size={18} />, text: "Relatórios" },
-                { icon: <Settings size={18} />, text: "Configurações" },
-                { icon: <HelpCircle size={18} />, text: "Ajuda" }
+                { icon: <Home size={18} />, text: "Dashboard", path: "/dashboard" },
+                { icon: <Package size={18} />, text: "Pedidos", path: "/dashboard" },
+                { icon: <Users size={18} />, text: "Clientes", path: "/dashboard" },
+                { icon: <Activity size={18} />, text: "Rastreamento", path: "/dashboard" },
+                { icon: <BarChart size={18} />, text: "Relatórios", path: "/dashboard" },
+                { icon: <User size={18} />, text: "Meu Perfil", path: "/profile" },
+                { icon: <Settings size={18} />, text: "Configurações", path: "/settings" },
+                { icon: <HelpCircle size={18} />, text: "Ajuda", path: "/dashboard" }
               ].map((item, index) => (
-                <a 
+                <Link 
                   key={index}
-                  href="#"
+                  to={item.path}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    item.active 
+                    isActive(item.path) 
                       ? "bg-primary text-white" 
                       : "text-gray-400 hover:bg-secondary hover:text-white"
                   }`}
                 >
                   {item.icon}
                   <span>{item.text}</span>
-                </a>
+                </Link>
               ))}
             </div>
           </nav>
@@ -178,21 +185,25 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
               >
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="font-bold text-primary">A</span>
+                  <span className="font-bold text-primary">
+                    {localStorage.getItem("profileName")?.charAt(0).toUpperCase() || "A"}
+                  </span>
                 </div>
-                <span className="hidden md:block text-sm font-medium">Admin</span>
+                <span className="hidden md:block text-sm font-medium">
+                  {localStorage.getItem("profileName") || "Admin"}
+                </span>
                 <ChevronDown size={16} className={`transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
               
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-secondary border border-white/10 rounded-lg shadow-lg z-50">
                   <div className="py-1">
-                    <a href="#" className="block px-4 py-2 text-sm hover:bg-black/20">
+                    <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-black/20">
                       Meu Perfil
-                    </a>
-                    <a href="#" className="block px-4 py-2 text-sm hover:bg-black/20">
+                    </Link>
+                    <Link to="/settings" className="block px-4 py-2 text-sm hover:bg-black/20">
                       Configurações
-                    </a>
+                    </Link>
                     <button 
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-black/20 text-red-400"

@@ -7,12 +7,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Código de rastreamento não informado.' });
   }
 
+  // Tenta obter o token da API do localStorage, se não houver usa o token padrão
+  const token = localStorage.getItem("apiToken") || "oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU";
+
   try {
     const response = await fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Apikey oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU'
+        'Authorization': `Apikey ${token}`
       },
       body: JSON.stringify({ code: codigo })
     });

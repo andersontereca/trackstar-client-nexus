@@ -129,7 +129,7 @@ const Dashboard = () => {
     }
   };
   
-  // Função modificada para rastrear diretamente pela API Wonca
+  // Função modificada para rastrear usando o token personalizado
   const fetchSingleStatus = async (rowIndex: number) => {
     const codigo = tableData[rowIndex][CODE_INDEX];
     if (!codigo || codigo === 'N/A') {
@@ -140,12 +140,15 @@ const Dashboard = () => {
     try {
       toast.info(`Buscando informações para o código ${codigo}...`);
       
+      // Obter o token da API do localStorage, se não houver usa o token padrão
+      const token = localStorage.getItem("apiToken") || "oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU";
+      
       // Chamada direta para a API Wonca
       const response = await fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Apikey oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU'
+          'Authorization': `Apikey ${token}`
         },
         body: JSON.stringify({ code: codigo })
       });
@@ -188,6 +191,9 @@ const Dashboard = () => {
     
     toast.info("Iniciando atualização de rastreios...");
 
+    // Obter o token da API do localStorage, se não houver usa o token padrão
+    const token = localStorage.getItem("apiToken") || "oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU";
+
     // Coleta os códigos "Agendado" válidos
     for (let i = 1; i < tableData.length; i++) {
       const status = tableData[i][STATUS_INDEX];
@@ -216,7 +222,7 @@ const Dashboard = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Apikey oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU'
+              'Authorization': `Apikey ${token}`
             },
             body: JSON.stringify({ code: codigo })
           })
