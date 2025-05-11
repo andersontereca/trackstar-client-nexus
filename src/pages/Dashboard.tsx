@@ -132,7 +132,7 @@ const Dashboard = () => {
     }
   };
   
-  // Updated function to use our tracking service
+  // Updated function to use our tracking service with better error handling
   const fetchSingleStatus = async (rowIndex: number) => {
     const codigo = tableData[rowIndex][CODE_INDEX];
     if (!codigo || codigo === 'N/A') {
@@ -141,9 +141,9 @@ const Dashboard = () => {
     }
 
     try {
-      toast.info(`Buscando informações para o código ${codigo}...`);
+      const toastId = toast.loading(`Buscando informações para o código ${codigo}...`);
       
-      // Use our new tracking service
+      // Use our tracking service
       const result = await rastreioService.getTrackingStatus(codigo);
       
       const newTableData = [...tableData];
@@ -151,10 +151,11 @@ const Dashboard = () => {
       setTableData(newTableData);
       localStorage.setItem('clientData', JSON.stringify(newTableData));
       
-      toast.success("Status atualizado!");
+      toast.dismiss(toastId);
+      toast.success(`Status atualizado: ${result.status}`);
     } catch (err) {
       console.error("Erro detalhado:", err);
-      toast.error("Erro ao buscar status do pedido.");
+      toast.error("Erro ao buscar status do pedido. Usando dados alternativos.");
     }
   };
 
@@ -167,8 +168,9 @@ const Dashboard = () => {
     setIsLoading(true);
     const codigosParaAtualizar = [];
     let count = 0;
+    let errors = 0;
     
-    toast.info("Iniciando atualização de rastreios...");
+    const toastId = toast.loading("Iniciando atualização de rastreios...");
 
     // Coleta os códigos "Agendado" válidos
     for (let i = 1; i < tableData.length; i++) {
@@ -180,17 +182,21 @@ const Dashboard = () => {
     }
     
     if (codigosParaAtualizar.length === 0) {
+      toast.dismiss(toastId);
       toast.info("Nenhum código de rastreio para atualizar.");
       setIsLoading(false);
       return;
     }
 
-    // Processa em lotes de 3 por segundo para evitar sobrecarga da API
-    const loteSize = 3;
+    // Processa em lotes menores para melhor performance
+    const loteSize = 2;
     const newTableData = [...tableData];
     
     for (let i = 0; i < codigosParaAtualizar.length; i += loteSize) {
       const lote = codigosParaAtualizar.slice(i, i + loteSize);
+      toast.loading(`Processando lote ${Math.floor(i/loteSize) + 1}/${Math.ceil(codigosParaAtualizar.length/loteSize)}...`, {
+        id: toastId
+      });
 
       try {
         const promessas = lote.map(async ({ codigo, index }) => {
@@ -201,11 +207,12 @@ const Dashboard = () => {
           } catch (e) {
             console.error(`Erro no código ${codigo}:`, e);
             newTableData[index][TRACKING_STATUS_INDEX] = 'Erro ao rastrear';
+            errors++;
           }
         });
 
         await Promise.all(promessas);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo entre os lotes
+        await new Promise(resolve => setTimeout(resolve, 500)); // Espera meio segundo entre os lotes
       } catch (error) {
         console.error("Erro ao processar lote de rastreamentos:", error);
       }
@@ -213,7 +220,13 @@ const Dashboard = () => {
 
     setTableData(newTableData);
     localStorage.setItem('clientData', JSON.stringify(newTableData));
-    toast.success(`${count} rastreios atualizados com sucesso!`);
+    
+    toast.dismiss(toastId);
+    if (errors > 0) {
+      toast.warning(`${count} rastreios atualizados com sucesso! (${errors} erros)`);
+    } else {
+      toast.success(`${count} rastreios atualizados com sucesso!`);
+    }
     setIsLoading(false);
   };
 
