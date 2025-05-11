@@ -8,6 +8,9 @@ import StatusSection from "@/components/dashboard/StatusSection";
 import { useNavigate } from "react-router-dom";
 import { Search, UploadCloud, Download, UserPlus, RefreshCw } from "lucide-react";
 
+// Import our tracking service
+import rastreioService from "../../public/rastreio.js";
+
 const Dashboard = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,7 +132,7 @@ const Dashboard = () => {
     }
   };
   
-  // Função modificada para rastrear usando o token personalizado
+  // Updated function to use our tracking service
   const fetchSingleStatus = async (rowIndex: number) => {
     const codigo = tableData[rowIndex][CODE_INDEX];
     if (!codigo || codigo === 'N/A') {
@@ -140,35 +143,11 @@ const Dashboard = () => {
     try {
       toast.info(`Buscando informações para o código ${codigo}...`);
       
-      // Obter o token da API do localStorage, se não houver usa o token padrão
-      const token = localStorage.getItem("apiToken") || "oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU";
-      
-      // Chamada direta para a API Wonca
-      const response = await fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Apikey ${token}`
-        },
-        body: JSON.stringify({ code: codigo })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Status: ${response.status}`);
-      }
-      
-      const apiResponse = await response.json();
-      
-      if (!apiResponse || !apiResponse.json) {
-        throw new Error('Resposta inválida da API');
-      }
-      
-      const dados = JSON.parse(apiResponse.json || '{}');
-      const statusAtual = (dados.eventos && dados.eventos[0] && dados.eventos[0].descricaoFrontEnd) || 'Status não disponível';
-      const dataAtualizacao = (dados.eventos && dados.eventos[0] && dados.eventos[0].dtHrCriado && dados.eventos[0].dtHrCriado.date) || 'Data não disponível';
+      // Use our new tracking service
+      const result = await rastreioService.getTrackingStatus(codigo);
       
       const newTableData = [...tableData];
-      newTableData[rowIndex][TRACKING_STATUS_INDEX] = statusAtual;
+      newTableData[rowIndex][TRACKING_STATUS_INDEX] = result.status;
       setTableData(newTableData);
       localStorage.setItem('clientData', JSON.stringify(newTableData));
       
@@ -190,9 +169,6 @@ const Dashboard = () => {
     let count = 0;
     
     toast.info("Iniciando atualização de rastreios...");
-
-    // Obter o token da API do localStorage, se não houver usa o token padrão
-    const token = localStorage.getItem("apiToken") || "oW-5Hg-c_7IBLiKkOVqFEntY-FTq9YEixDy-4mEFATU";
 
     // Coleta os códigos "Agendado" válidos
     for (let i = 1; i < tableData.length; i++) {
@@ -217,36 +193,16 @@ const Dashboard = () => {
       const lote = codigosParaAtualizar.slice(i, i + loteSize);
 
       try {
-        const promessas = lote.map(({ codigo, index }) =>
-          fetch('https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Apikey ${token}`
-            },
-            body: JSON.stringify({ code: codigo })
-          })
-            .then(res => {
-              if (!res.ok) throw new Error(`Status: ${res.status}`);
-              return res.json();
-            })
-            .then(apiResponse => {
-              if (!apiResponse || !apiResponse.json) {
-                throw new Error('Resposta inválida da API');
-              }
-              
-              const dados = JSON.parse(apiResponse.json || '{}');
-              const statusAtual = (dados.eventos && dados.eventos[0] && dados.eventos[0].descricaoFrontEnd) || 'Status não disponível';
-              
-              newTableData[index][TRACKING_STATUS_INDEX] = statusAtual;
-              count++;
-            })
-            .catch(e => {
-              console.error(`Erro no código ${codigo}:`, e);
-              // Adicionar mensagem de erro específica ao status
-              newTableData[index][TRACKING_STATUS_INDEX] = 'Erro ao rastrear';
-            })
-        );
+        const promessas = lote.map(async ({ codigo, index }) => {
+          try {
+            const result = await rastreioService.getTrackingStatus(codigo);
+            newTableData[index][TRACKING_STATUS_INDEX] = result.status;
+            count++;
+          } catch (e) {
+            console.error(`Erro no código ${codigo}:`, e);
+            newTableData[index][TRACKING_STATUS_INDEX] = 'Erro ao rastrear';
+          }
+        });
 
         await Promise.all(promessas);
         await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo entre os lotes
