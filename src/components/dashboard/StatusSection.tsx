@@ -83,10 +83,13 @@ const StatusSection = ({
   // Determina a classe para o status de rastreio
   const getTrackingStatusClass = (status: string) => {
     const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('entregue')) return 'status-entregue';
-    if (statusLower.includes('aguardando')) return 'status-aguardando';
-    if (statusLower.includes('postado')) return 'status-postado';
-    return 'status-nao-encontrado';
+    if (statusLower.includes('entregue')) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300';
+    if (statusLower.includes('aguardando')) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300';
+    if (statusLower.includes('postado')) return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300';
+    if (statusLower.includes('trânsito')) return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300';
+    if (statusLower.includes('saiu para entrega')) return 'bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-300';
+    if (statusLower.includes('tentativa')) return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300';
+    return 'bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-300';
   };
 
   // Renderiza informações detalhadas do cliente com mapeamento corrigido
@@ -180,6 +183,7 @@ const StatusSection = ({
                       {data[0][colIndex] || `Coluna ${colIndex}`}
                     </th>
                   ))}
+                  <th className="bg-secondary p-2 text-center">Rastreio</th>
                   <th className="bg-secondary p-2 text-center">Ações</th>
                 </tr>
               </thead>
@@ -216,7 +220,7 @@ const StatusSection = ({
                         return (
                           <td 
                             key={colIdx} 
-                            className={`p-2 ${colIndex === trackingStatusIndex ? getTrackingStatusClass(cellValue) : ''}`}
+                            className="p-2"
                           >
                             <div
                               contentEditable
@@ -229,6 +233,11 @@ const StatusSection = ({
                           </td>
                         );
                       })}
+                      <td className={`p-2 text-center rounded ${getTrackingStatusClass(row[trackingStatusIndex] || '')}`}>
+                        <span className="font-medium text-sm">
+                          {row[trackingStatusIndex] || 'Não rastreado'}
+                        </span>
+                      </td>
                       <td className="p-2 text-center">
                         <Button
                           onClick={() => fetchStatus(originalIndex)}
