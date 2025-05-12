@@ -1,10 +1,13 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, RefreshCw, Plus } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
 interface StatusSectionProps {
   title: string;
+  statuses: string[];
   data: any[];
   statusIndex: number;
   nameIndex: number;
@@ -14,10 +17,12 @@ interface StatusSectionProps {
   searchTerm: string;
   updateData: (row: number, col: number, value: any) => void;
   fetchStatus: (row: number) => void;
+  color: string;
 }
 
 const StatusSection = ({
   title,
+  statuses,
   data,
   statusIndex,
   nameIndex,
@@ -27,6 +32,7 @@ const StatusSection = ({
   searchTerm,
   updateData,
   fetchStatus,
+  color,
 }: StatusSectionProps) => {
   const [isOpen, setIsOpen] = useState(true);
   
@@ -41,7 +47,8 @@ const StatusSection = ({
   // Filtra os dados por status e termo de pesquisa
   const filtered = data.filter((row, idx) => {
     if (idx === 0) return false;
-    const matchStatus = row[statusIndex] && row[statusIndex].toLowerCase() === title.toLowerCase();
+    const rowStatus = row[statusIndex]?.toLowerCase() || "";
+    const matchStatus = statuses.some(status => rowStatus === status.toLowerCase());
     const matchSearch = !searchTerm || (row[nameIndex] && row[nameIndex].toString().toLowerCase().includes(searchTerm)) || 
                       (row[phoneIndex] && row[phoneIndex].toString().toLowerCase().includes(searchTerm));
     return matchStatus && matchSearch;
@@ -51,25 +58,25 @@ const StatusSection = ({
     return null;
   }
   
-  // Determina a classe de cor de fundo do cabeçalho com base no status
-  const getHeaderClass = () => {
-    switch (title.toLowerCase()) {
-      case 'agendado': return 'bg-blue-600';
-      case 'pagamento aprovado': return 'bg-green-600';
-      case 'cancelada': return 'bg-red-600';
-      case 'pagamento atrasado': return 'bg-orange-600';
-      default: return 'bg-gray-600';
+  // Determina o ícone para o status
+  const getStatusIcon = () => {
+    switch (color) {
+      case 'blue': return '📅';
+      case 'green': return '✅';
+      case 'red': return '❌';
+      case 'yellow': return '⏰';
+      default: return '📌';
     }
   };
   
-  // Determina o ícone para o status
-  const getStatusIcon = () => {
-    switch (title.toLowerCase()) {
-      case 'agendado': return '📅';
-      case 'pagamento aprovado': return '✅';
-      case 'cancelada': return '❌';
-      case 'pagamento atrasado': return '⏰';
-      default: return '📌';
+  // Determina a classe de cor de fundo do cabeçalho com base na cor
+  const getHeaderClass = () => {
+    switch (color) {
+      case 'blue': return 'bg-blue-600';
+      case 'green': return 'bg-green-600';
+      case 'red': return 'bg-red-600';
+      case 'yellow': return 'bg-yellow-600';
+      default: return 'bg-gray-600';
     }
   };
   
@@ -167,7 +174,8 @@ const StatusSection = ({
               <thead>
                 <tr>
                   <th className="bg-secondary p-2 text-center" style={{ width: "40px" }}>Info</th>
-                  {customColumnOrder.slice(0, 5).map((colIndex) => (
+                  <th className="bg-secondary p-2 text-left">Status</th>
+                  {customColumnOrder.slice(0, 4).map((colIndex) => (
                     <th key={colIndex} className="bg-secondary p-2 text-left">
                       {data[0][colIndex] || `Coluna ${colIndex}`}
                     </th>
@@ -195,7 +203,15 @@ const StatusSection = ({
                           </PopoverContent>
                         </Popover>
                       </td>
-                      {customColumnOrder.slice(0, 5).map((colIndex, colIdx) => {
+                      <td className="p-2">
+                        <Badge variant={color === 'blue' ? 'default' : 
+                                      color === 'green' ? 'success' : 
+                                      color === 'yellow' ? 'warning' : 
+                                      color === 'red' ? 'destructive' : 'secondary'}>
+                          {row[statusIndex] || 'N/A'}
+                        </Badge>
+                      </td>
+                      {customColumnOrder.slice(0, 4).map((colIndex, colIdx) => {
                         const cellValue = row[colIndex] || '';
                         return (
                           <td 

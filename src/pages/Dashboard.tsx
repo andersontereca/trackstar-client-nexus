@@ -23,8 +23,29 @@ const Dashboard = () => {
   const CODE_INDEX = 35;
   const TRACKING_STATUS_INDEX = 36;
   
-  // Status types
-  const statusTypes = ['Agendado', 'Pagamento Aprovado', 'Cancelada', 'Pagamento Atrasado'];
+  // Status groups with their respective statuses
+  const statusGroups = [
+    {
+      title: 'Em Processamento | Agendado',
+      statuses: ['Em Processamento', 'Agendado'],
+      color: 'blue'
+    },
+    {
+      title: 'Pagamento Aprovado',
+      statuses: ['Pagamento Aprovado'],
+      color: 'green'
+    },
+    {
+      title: 'Aguardando Pagamento | Em Análise | Estorno Pendente',
+      statuses: ['Aguardando Pagamento', 'Em Análise', 'Estorno Pendente', 'Pagamento Atrasado'],
+      color: 'yellow'
+    },
+    {
+      title: 'Cancelada | Chargeback | Devolvida | Frustrada',
+      statuses: ['Cancelada', 'Chargeback', 'Devolvida', 'Frustrada'],
+      color: 'red'
+    }
+  ];
   
   useEffect(() => {
     // Verificar autenticação
@@ -259,7 +280,7 @@ const Dashboard = () => {
               <p className="text-3xl font-bold text-blue-400">
                 {tableData.length > 0 
                   ? tableData.filter((row, i) => 
-                      i > 0 && row[STATUS_INDEX] === 'Agendado').length
+                      i > 0 && (row[STATUS_INDEX] === 'Em Processamento' || row[STATUS_INDEX] === 'Agendado')).length
                   : 0}
               </p>
               <div className="mt-2 text-sm text-gray-400">
@@ -340,10 +361,11 @@ const Dashboard = () => {
           {/* Seções de Status */}
           <div className="space-y-6">
             {tableData.length > 0 ? (
-              statusTypes.map(status => (
+              statusGroups.map(group => (
                 <StatusSection
-                  key={status}
-                  title={status}
+                  key={group.title}
+                  title={group.title}
+                  statuses={group.statuses}
                   data={tableData}
                   statusIndex={STATUS_INDEX}
                   nameIndex={NAME_INDEX}
@@ -353,6 +375,7 @@ const Dashboard = () => {
                   searchTerm={searchTerm}
                   updateData={updateData}
                   fetchStatus={fetchSingleStatus}
+                  color={group.color}
                 />
               ))
             ) : (
