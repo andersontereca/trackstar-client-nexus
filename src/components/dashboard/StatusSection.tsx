@@ -1,7 +1,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, RefreshCw, Plus } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 interface StatusSectionProps {
   title: string;
@@ -82,6 +83,66 @@ const StatusSection = ({
     return 'status-nao-encontrado';
   };
 
+  // Renderiza informações detalhadas do cliente
+  const renderCustomerDetails = (row: any) => {
+    // Mapeamento de campos importantes para exibição
+    const addressFields = [
+      { label: "Endereço", index: 7 }, 
+      { label: "Bairro", index: 8 }, 
+      { label: "Cidade", index: 9 }, 
+      { label: "Estado", index: 10 },
+      { label: "CEP", index: 11 }
+    ];
+    
+    const productFields = [
+      { label: "Produto", index: 3 },
+      { label: "Valor", index: 5 },
+      { label: "Observações", index: 12 }
+    ];
+    
+    return (
+      <div className="p-2">
+        <div className="mb-4">
+          <h4 className="font-bold text-sm mb-2 border-b pb-1">Dados do Cliente</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-xs text-gray-500">Nome:</p>
+              <p className="font-medium">{row[nameIndex] || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Telefone:</p>
+              <p className="font-medium">{row[phoneIndex] || "N/A"}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mb-4">
+          <h4 className="font-bold text-sm mb-2 border-b pb-1">Endereço</h4>
+          <div className="space-y-1">
+            {addressFields.map((field) => (
+              <div key={field.index} className="grid grid-cols-3 gap-1">
+                <p className="text-xs text-gray-500 col-span-1">{field.label}:</p>
+                <p className="text-sm col-span-2">{row[field.index] || "N/A"}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div>
+          <h4 className="font-bold text-sm mb-2 border-b pb-1">Produto</h4>
+          <div className="space-y-1">
+            {productFields.map((field) => (
+              <div key={field.index} className="grid grid-cols-3 gap-1">
+                <p className="text-xs text-gray-500 col-span-1">{field.label}:</p>
+                <p className="text-sm col-span-2">{row[field.index] || "N/A"}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`glass-card overflow-hidden transition-all duration-300 hover:shadow-[0_0_25px_rgba(108,99,255,0.2)]`}>
       <div 
@@ -104,6 +165,7 @@ const StatusSection = ({
             <table className="w-full">
               <thead>
                 <tr>
+                  <th className="bg-secondary p-2 text-center" style={{ width: "40px" }}>Info</th>
                   {customColumnOrder.slice(0, 5).map((colIndex) => (
                     <th key={colIndex} className="bg-secondary p-2 text-left">
                       {data[0][colIndex] || `Coluna ${colIndex}`}
@@ -119,6 +181,19 @@ const StatusSection = ({
                   
                   return (
                     <tr key={rowIdx} className="border-b border-white/10 hover:bg-black/30">
+                      <td className="p-2 text-center">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full p-0">
+                              <Plus size={16} />
+                              <span className="sr-only">Ver detalhes</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 bg-popover/95 backdrop-blur-sm border border-white/10">
+                            {renderCustomerDetails(row)}
+                          </PopoverContent>
+                        </Popover>
+                      </td>
                       {customColumnOrder.slice(0, 5).map((colIndex, colIdx) => {
                         const cellValue = row[colIndex] || '';
                         return (
