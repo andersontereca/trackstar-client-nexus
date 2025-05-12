@@ -83,21 +83,23 @@ const StatusSection = ({
     return 'status-nao-encontrado';
   };
 
-  // Renderiza informações detalhadas do cliente
+  // Renderiza informações detalhadas do cliente com mapeamento corrigido
   const renderCustomerDetails = (row: any) => {
-    // Mapeamento de campos importantes para exibição
+    // Mapeamento CORRETO de campos do endereço
     const addressFields = [
-      { label: "Endereço", index: 7 }, 
-      { label: "Bairro", index: 8 }, 
-      { label: "Cidade", index: 9 }, 
-      { label: "Estado", index: 10 },
-      { label: "CEP", index: 11 }
+      { label: "CEP", index: 11 },
+      { label: "Rua", index: 7 },
+      { label: "Número", index: 8 }, 
+      { label: "Bairro", index: 10 },
+      { label: "Cidade", index: 9 },
+      { label: "Estado", index: 12 }
     ];
     
+    // Mapeamento CORRETO dos campos do produto
     const productFields = [
       { label: "Produto", index: 3 },
-      { label: "Valor", index: 5 },
-      { label: "Observações", index: 12 }
+      { label: "Email", index: 5 },
+      { label: "Observações", index: 13 }
     ];
     
     return (
