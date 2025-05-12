@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, RefreshCw, Plus } from "lucide-react";
@@ -87,19 +86,19 @@ const StatusSection = ({
   const renderCustomerDetails = (row: any) => {
     // Mapeamento CORRETO de campos do endereço
     const addressFields = [
-      { label: "CEP", index: 11 },
-      { label: "Rua", index: 7 },
-      { label: "Número", index: 8 }, 
-      { label: "Bairro", index: 10 },
-      { label: "Cidade", index: 9 },
-      { label: "Estado", index: 12 }
+      { label: "CEP", index: 7 },
+      { label: "Rua", index: 8 },
+      { label: "Número", index: 9 }, 
+      { label: "Bairro", index: 11 },
+      { label: "Cidade", index: 12 },
+      { label: "Estado", index: 13 }
     ];
     
     // Mapeamento CORRETO dos campos do produto
     const productFields = [
       { label: "Produto", index: 3 },
       { label: "Email", index: 5 },
-      { label: "Observações", index: 13 }
+      { label: "Observações", index: 10 }
     ];
     
     return (
