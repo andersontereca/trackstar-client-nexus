@@ -1,8 +1,11 @@
 
-This is a placeholder for a binary Excel file that would normally be created externally.
-You should upload a real Excel file with order data to this location.
-The file should contain columns for:
-- Status (linha 14)
-- Data de Compra (linha 22)
-- Produto (linha 4)
-- Valor (linha 19)
+This is a placeholder for the Excel file with the following structure:
+
+Row 4: Produto (Product names)
+Row 14: Status (Order statuses like "Em processamento", "Enviado", "Entregue", etc.)
+Row 19: Valor (Price values)
+Row 22: Data de Compra (Purchase dates)
+
+Each column represents a different order with these properties.
+
+The actual Excel file should be uploaded manually to this location.
