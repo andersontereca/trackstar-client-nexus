@@ -76,70 +76,134 @@ const Reports = () => {
   const [topProducts, setTopProducts] = useState<SalesData[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const processExcelData = async () => {
-      try {
-        setIsLoading(true);
-        // Verificar se a biblioteca XLSX está carregada
-        if (!window.XLSX) {
-          toast.error("Biblioteca Excel não carregada. Por favor, atualize a página.");
-          return;
-        }
+    // Load XLSX library dynamically if it's not already loaded
+    if (!window.XLSX) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js';
+      script.async = true;
+      script.onload = () => {
+        console.log("XLSX library loaded");
+        processExcelData();
+      };
+      script.onerror = () => {
+        setError("Falha ao carregar biblioteca XLSX");
+        setIsLoading(false);
+        toast.error("Falha ao carregar biblioteca XLSX");
+      };
+      document.body.appendChild(script);
+    } else {
+      processExcelData();
+    }
+  }, [refreshTrigger]);
 
-        // Buscar o arquivo Excel
-        const response = await fetch('/examples/orders.xlsx');
-        const arrayBuffer = await response.arrayBuffer();
-        
-        const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        
-        // Converter para JSON para processamento
-        const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        
-        // Processar os dados para os gráficos
+  const processExcelData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Verificar se a biblioteca XLSX está carregada
+      if (!window.XLSX) {
+        toast.error("Biblioteca Excel não carregada. Por favor, atualize a página.");
+        setError("Biblioteca Excel não carregada");
+        return;
+      }
+
+      console.log("Fetching Excel file...");
+      // Buscar o arquivo Excel
+      const response = await fetch('/examples/orders.xlsx');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      console.log("Excel file fetched, processing data...");
+      
+      const workbook = window.XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      
+      if (!worksheet) {
+        throw new Error("Planilha não encontrada no arquivo Excel");
+      }
+      
+      // Converter para JSON para processamento
+      const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      console.log("Excel data converted to JSON:", jsonData);
+      
+      // Processar os dados para os gráficos
+      if (Array.isArray(jsonData) && jsonData.length > 0) {
         processOrderData(jsonData);
         toast.success("Dados do relatório carregados com sucesso");
-        
-      } catch (error) {
-        console.error("Erro ao processar dados do Excel:", error);
-        toast.error("Falha ao carregar dados do relatório");
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error("Formato de dados inválido ou vazio");
       }
-    };
-
-    processExcelData();
-  }, [refreshTrigger]);
+      
+    } catch (error) {
+      console.error("Erro ao processar dados do Excel:", error);
+      setError(`Falha ao carregar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error(`Falha ao carregar dados do relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Mapeia os dados do Excel para os campos corretos baseado nas linhas específicas
   const processOrderData = (data: any[][]) => {
     if (!Array.isArray(data) || data.length < 23) {
+      setError("Formato de dados inválido ou incompleto");
       toast.error("Formato de dados inválido ou incompleto");
       return;
     }
     
-    // Encontrar o cabeçalho (normalmente na primeira linha)
-    // E mapear as colunas para os índices corretos
-    const headerRow = data[0] || [];
+    console.log("Processing order data from Excel...");
     
-    // Índices específicos mencionados pelo usuário
+    // Índices específicos para os dados
     const STATUS_ROW = 14;  // linha 14 para Status
     const PURCHASE_DATE_ROW = 22; // linha 22 para Data de Compra
     const PRODUCT_ROW = 4; // linha 4 para Produto 
     const PRICE_ROW = 19; // linha 19 para Valor
     
+    // Verificar se todas as linhas necessárias existem
+    if (!data[STATUS_ROW] || !data[PURCHASE_DATE_ROW] || !data[PRODUCT_ROW] || !data[PRICE_ROW]) {
+      console.error("Missing required rows in Excel data:", 
+        { status: !!data[STATUS_ROW], date: !!data[PURCHASE_DATE_ROW], 
+          product: !!data[PRODUCT_ROW], price: !!data[PRICE_ROW] });
+      setError("Dados incompletos na planilha");
+      toast.error("Dados incompletos na planilha");
+      return;
+    }
+    
     // Inicializar arrays para armazenar dados processados
     const orders: OrderData[] = [];
     
+    console.log("STATUS_ROW data:", data[STATUS_ROW]);
+    console.log("PRODUCT_ROW data:", data[PRODUCT_ROW]);
+    console.log("PRICE_ROW data:", data[PRICE_ROW]);
+    console.log("PURCHASE_DATE_ROW data:", data[PURCHASE_DATE_ROW]);
+    
     // Processar cada coluna (registro) a partir da segunda coluna
     // Cada coluna representa um pedido diferente
-    for (let colIndex = 1; colIndex < data[0].length; colIndex++) {
+    for (let colIndex = 1; colIndex < Math.max(
+      data[STATUS_ROW]?.length || 0, 
+      data[PRODUCT_ROW]?.length || 0,
+      data[PRICE_ROW]?.length || 0,
+      data[PURCHASE_DATE_ROW]?.length || 0
+    ); colIndex++) {
       // Extrair dados das linhas específicas para cada pedido
       const statusValue = data[STATUS_ROW] && data[STATUS_ROW][colIndex];
       const purchaseDateValue = data[PURCHASE_DATE_ROW] && data[PURCHASE_DATE_ROW][colIndex];
       const productValue = data[PRODUCT_ROW] && data[PRODUCT_ROW][colIndex];
       const priceValue = data[PRICE_ROW] && data[PRICE_ROW][colIndex];
+      
+      console.log(`Column ${colIndex}:`, { 
+        status: statusValue, 
+        date: purchaseDateValue,
+        product: productValue, 
+        price: priceValue 
+      });
       
       // Verificar se temos dados válidos antes de adicionar
       if (statusValue || productValue || purchaseDateValue) {
@@ -147,11 +211,14 @@ const Reports = () => {
           status: statusValue?.toString() || 'Pendente',
           purchaseDate: formatDate(purchaseDateValue),
           product: productValue?.toString() || 'Desconhecido',
-          price: parseFloat(priceValue) || 0
+          price: typeof priceValue === 'number' ? priceValue : 
+                 (typeof priceValue === 'string' ? parseFloat(priceValue.replace(/[^\d.,]/g, '').replace(',', '.')) : 0)
         };
         orders.push(order);
       }
     }
+    
+    console.log("Processed orders:", orders);
     
     // Atualizar o estado com os pedidos processados
     setOrderData(orders);
@@ -169,6 +236,7 @@ const Reports = () => {
     }));
     
     setStatusData(statusChartData);
+    console.log("Status data for pie chart:", statusChartData);
     
     // Processar dados para o gráfico de barras (datas)
     const dateGroups: Record<string, { orders: number, value: number }> = {};
@@ -189,6 +257,7 @@ const Reports = () => {
       }));
     
     setDateData(dateChartData);
+    console.log("Date data for bar chart:", dateChartData);
     
     // Processar ranking de produtos
     const productData: Record<string, { quantity: number, totalValue: number }> = {};
@@ -210,14 +279,18 @@ const Reports = () => {
       .slice(0, 10);
     
     setTopProducts(productsRanked);
+    console.log("Top products:", productsRanked);
     
     // Calcular faturamento total
     const revenue = orders.reduce((sum, order) => sum + order.price, 0);
     setTotalRevenue(Math.round(revenue * 100) / 100);
+    console.log("Total revenue:", revenue);
   };
 
   // Função para formatar a data do Excel
   const formatDate = (excelDate: any): string => {
+    console.log("Formatting date:", excelDate, "Type:", typeof excelDate);
+    
     // Se já for uma string formatada, retornar
     if (typeof excelDate === 'string') {
       // Tentar formatar se for uma data válida
@@ -227,7 +300,7 @@ const Reports = () => {
           return date.toISOString().split('T')[0];
         }
       } catch (e) {
-        // Ignorar erro e retornar a string original
+        console.error("Error formatting date string:", e);
       }
       return excelDate;
     }
@@ -356,8 +429,25 @@ const Reports = () => {
                       </PieChart>
                     </ChartContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-full">
-                      {isLoading ? "Carregando..." : "Não há dados disponíveis"}
+                    <div className="flex flex-col items-center justify-center h-full">
+                      {isLoading ? (
+                        <p>Carregando dados...</p>
+                      ) : error ? (
+                        <div className="text-center space-y-2">
+                          <p className="text-destructive">{error}</p>
+                          <Button size="sm" variant="outline" onClick={handleRefresh}>
+                            Tentar novamente
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-2">
+                          <p>Não há dados disponíveis</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <FileSpreadsheet size={16} />
+                            <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -411,8 +501,25 @@ const Reports = () => {
                       </BarChart>
                     </ChartContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-full">
-                      {isLoading ? "Carregando..." : "Não há dados disponíveis"}
+                    <div className="flex flex-col items-center justify-center h-full">
+                      {isLoading ? (
+                        <p>Carregando dados...</p>
+                      ) : error ? (
+                        <div className="text-center space-y-2">
+                          <p className="text-destructive">{error}</p>
+                          <Button size="sm" variant="outline" onClick={handleRefresh}>
+                            Tentar novamente
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-2">
+                          <p>Não há dados disponíveis</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <FileSpreadsheet size={16} />
+                            <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -452,10 +559,32 @@ const Reports = () => {
                         <TableCell className="text-right">{formatCurrency(product.totalValue)}</TableCell>
                       </TableRow>
                     ))}
-                    {topProducts.length === 0 && (
+                    {isLoading && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-4">
+                          Carregando dados...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!isLoading && topProducts.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
-                          Nenhum dado de produto disponível
+                          {error ? (
+                            <div className="space-y-2">
+                              <p className="text-destructive">{error}</p>
+                              <Button size="sm" variant="outline" onClick={handleRefresh}>
+                                Tentar novamente
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <p>Nenhum dado de produto disponível</p>
+                              <div className="flex justify-center items-center gap-2 text-sm">
+                                <FileSpreadsheet size={16} />
+                                <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                              </div>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     )}
