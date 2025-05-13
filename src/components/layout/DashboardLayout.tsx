@@ -105,7 +105,7 @@ const DashboardLayout = ({
                 { icon: <Package size={18} />, text: "Pedidos", path: "/dashboard" },
                 { icon: <Users size={18} />, text: "Clientes", path: "/dashboard" },
                 { icon: <Activity size={18} />, text: "Rastreamento", path: "/dashboard" },
-                { icon: <BarChart size={18} />, text: "Relatórios", path: "/dashboard" },
+                { icon: <BarChart size={18} />, text: "Relatórios", path: "/reports" },
                 { icon: <User size={18} />, text: "Meu Perfil", path: "/profile" },
                 { icon: <Settings size={18} />, text: "Configurações", path: "/settings" },
                 { icon: <HelpCircle size={18} />, text: "Ajuda", path: "/dashboard" }
@@ -152,7 +152,9 @@ const DashboardLayout = ({
               <Menu size={24} />
             </button>
             <div className="hidden md:block">
-              <h1 className="text-xl font-bold">Gerenciador de Clientes</h1>
+              <h1 className="text-xl font-bold">
+                {location.pathname === "/reports" ? "Relatórios" : "Gerenciador de Clientes"}
+              </h1>
             </div>
           </div>
 
