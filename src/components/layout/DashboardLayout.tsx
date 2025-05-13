@@ -3,16 +3,29 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge"; 
 import { 
   Menu, X, Home, Package, Users, Settings, LogOut, Activity,
-  BarChart, HelpCircle, Bell, Search, ChevronDown, User
+  BarChart, HelpCircle, Bell, Search, ChevronDown, User, RefreshCw
 } from "lucide-react";
+
+interface TrackingStats {
+  success: number;
+  errors: number;
+  errorDetails: string[];
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  trackingStats?: TrackingStats;
+  onResetTrackingStats?: () => void;
 }
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayout = ({ 
+  children, 
+  trackingStats = { success: 0, errors: 0, errorDetails: [] },
+  onResetTrackingStats 
+}: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -37,6 +50,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  // Total de notificações
+  const notificationCount = Math.min(trackingStats.errors, 99);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -144,35 +160,69 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             {/* Notificações */}
             <div className="relative">
               <button 
-                className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-secondary"
+                className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-secondary relative"
                 onClick={() => setNotificationOpen(!notificationOpen)}
               >
                 <Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                {trackingStats.errors > 0 && (
+                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-medium">
+                    {notificationCount}
+                  </span>
+                )}
               </button>
               {notificationOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-secondary border border-white/10 rounded-lg shadow-lg z-50 py-2">
-                  <div className="px-4 py-2 border-b border-white/10">
-                    <h3 className="font-medium">Notificações</h3>
+                <div className="absolute right-0 mt-2 w-80 bg-secondary border border-white/10 rounded-lg shadow-lg z-50 py-2">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                    <h3 className="font-medium">Notificações de Rastreio</h3>
+                    {(trackingStats.success > 0 || trackingStats.errors > 0) && onResetTrackingStats && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onResetTrackingStats();
+                          setNotificationOpen(false);
+                        }}
+                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      >
+                        <RefreshCw size={12} />
+                        Limpar
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    <div className="px-4 py-3 hover:bg-black/20 border-b border-white/5">
-                      <p className="text-sm font-medium">Novo pedido recebido</p>
-                      <p className="text-xs text-gray-400">Há 5 minutos</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-black/20 border-b border-white/5">
-                      <p className="text-sm font-medium">Atualização de status: Entregue</p>
-                      <p className="text-xs text-gray-400">Há 1 hora</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-black/20">
-                      <p className="text-sm font-medium">Lembrete: 3 rastreios pendentes</p>
-                      <p className="text-xs text-gray-400">Há 3 horas</p>
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 border-t border-white/10">
-                    <a href="#" className="text-xs text-primary hover:text-primary/80">
-                      Ver todas as notificações
-                    </a>
+                    {trackingStats.success > 0 && (
+                      <div className="px-4 py-3 hover:bg-black/20 border-b border-white/5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Rastreamentos bem-sucedidos</p>
+                          <Badge variant="success" className="text-xs">{trackingStats.success}</Badge>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {trackingStats.errors > 0 && (
+                      <div className="px-4 py-3 hover:bg-black/20 border-b border-white/5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Erros de rastreamento</p>
+                          <Badge variant="destructive" className="text-xs">{trackingStats.errors}</Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {trackingStats.errorDetails.length > 0 && (
+                      <div className="mt-2">
+                        <p className="px-4 py-2 text-xs font-medium text-gray-400">Detalhes dos erros recentes:</p>
+                        {trackingStats.errorDetails.map((error, index) => (
+                          <div key={index} className="px-4 py-2 text-xs border-b border-white/5 hover:bg-black/20">
+                            {error}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {trackingStats.success === 0 && trackingStats.errors === 0 && (
+                      <div className="px-4 py-6 text-center">
+                        <p className="text-sm text-gray-400">Nenhuma notificação disponível</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

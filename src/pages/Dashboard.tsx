@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,11 @@ const Dashboard = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [trackingStats, setTrackingStats] = useState({
+    success: 0,
+    errors: 0,
+    errorDetails: [] as string[]
+  });
   const navigate = useNavigate();
   
   const STATUS_INDEX = 17;
@@ -65,7 +71,24 @@ const Dashboard = () => {
         console.error("Erro ao carregar dados:", error);
       }
     }
+
+    // Carregar estatísticas de rastreio salvas
+    const savedStats = localStorage.getItem('trackingStats');
+    if (savedStats) {
+      try {
+        setTrackingStats(JSON.parse(savedStats));
+      } catch (error) {
+        console.error("Erro ao carregar estatísticas:", error);
+      }
+    }
   }, [navigate]);
+
+  // Salvar estatísticas de rastreio
+  useEffect(() => {
+    if (trackingStats.success > 0 || trackingStats.errors > 0) {
+      localStorage.setItem('trackingStats', JSON.stringify(trackingStats));
+    }
+  }, [trackingStats]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -153,7 +176,7 @@ const Dashboard = () => {
     }
   };
   
-  // Updated function to use our tracking service with better error handling
+  // Updated function to use our tracking service with real tracking data
   const fetchSingleStatus = async (rowIndex: number) => {
     const codigo = tableData[rowIndex][CODE_INDEX];
     if (!codigo || codigo === 'N/A') {
@@ -172,11 +195,25 @@ const Dashboard = () => {
       setTableData(newTableData);
       localStorage.setItem('clientData', JSON.stringify(newTableData));
       
+      // Update tracking statistics
+      setTrackingStats(prev => ({
+        ...prev,
+        success: prev.success + 1
+      }));
+      
       toast.dismiss(toastId);
       toast.success(`Status atualizado: ${result.status}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro detalhado:", err);
-      toast.error("Erro ao buscar status do pedido. Usando dados alternativos.");
+      
+      // Update error statistics
+      setTrackingStats(prev => ({
+        ...prev,
+        errors: prev.errors + 1,
+        errorDetails: [...prev.errorDetails, `Erro no código ${codigo}: ${err.message}`].slice(-10) // Keep last 10 errors
+      }));
+      
+      toast.error("Erro ao buscar status do pedido. Tentando novamente...");
     }
   };
 
@@ -190,6 +227,7 @@ const Dashboard = () => {
     const codigosParaAtualizar = [];
     let count = 0;
     let errors = 0;
+    let errorDetails: string[] = [];
     
     const toastId = toast.loading("Iniciando atualização de rastreios...");
 
@@ -225,10 +263,11 @@ const Dashboard = () => {
             const result = await rastreioService.getTrackingStatus(codigo);
             newTableData[index][TRACKING_STATUS_INDEX] = result.status;
             count++;
-          } catch (e) {
+          } catch (e: any) {
             console.error(`Erro no código ${codigo}:`, e);
             newTableData[index][TRACKING_STATUS_INDEX] = 'Erro ao rastrear';
             errors++;
+            errorDetails.push(`Erro no código ${codigo}: ${e.message}`);
           }
         });
 
@@ -241,6 +280,13 @@ const Dashboard = () => {
 
     setTableData(newTableData);
     localStorage.setItem('clientData', JSON.stringify(newTableData));
+    
+    // Update tracking statistics
+    setTrackingStats(prev => ({
+      success: prev.success + count,
+      errors: prev.errors + errors,
+      errorDetails: [...prev.errorDetails, ...errorDetails].slice(-20) // Keep last 20 errors
+    }));
     
     toast.dismiss(toastId);
     if (errors > 0) {
@@ -258,8 +304,21 @@ const Dashboard = () => {
     localStorage.setItem('clientData', JSON.stringify(newTableData));
   };
 
+  const resetTrackingStats = () => {
+    setTrackingStats({
+      success: 0,
+      errors: 0,
+      errorDetails: []
+    });
+    localStorage.removeItem('trackingStats');
+    toast.success("Estatísticas de rastreio reiniciadas");
+  };
+
   return (
-    <DashboardLayout>
+    <DashboardLayout 
+      trackingStats={trackingStats} 
+      onResetTrackingStats={resetTrackingStats}
+    >
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col gap-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
