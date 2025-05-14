@@ -28,9 +28,10 @@ import {
   PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, Cell 
 } from "recharts";
-import { Trophy, Download, FileSpreadsheet, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { Trophy, Download, FileSpreadsheet, RefreshCw, Upload, AlertCircle } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Interfaces para organização dos dados
 interface OrderData {
@@ -68,6 +69,34 @@ const STATUS_COLORS = {
   "Pendente": "#D946EF",
 };
 
+// Dados de exemplo para quando não há dados disponíveis
+const EXAMPLE_DATA = [
+  {
+    status: "Em processamento",
+    purchaseDate: "2025-05-10",
+    product: "Smartphone XYZ",
+    price: 1299.99
+  },
+  {
+    status: "Enviado",
+    purchaseDate: "2025-05-11",
+    product: "Notebook ABC",
+    price: 3499.99
+  },
+  {
+    status: "Entregue",
+    purchaseDate: "2025-05-09",
+    product: "Fone de Ouvido",
+    price: 299.99
+  },
+  {
+    status: "Cancelado",
+    purchaseDate: "2025-05-12",
+    product: "Mouse Gamer",
+    price: 199.99
+  }
+];
+
 const Reports = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orderData, setOrderData] = useState<OrderData[]>([]);
@@ -77,6 +106,7 @@ const Reports = () => {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [useExampleData, setUseExampleData] = useState(false);
 
   useEffect(() => {
     // Load XLSX library dynamically if it's not already loaded
@@ -91,7 +121,11 @@ const Reports = () => {
       script.onerror = () => {
         setError("Falha ao carregar biblioteca XLSX");
         setIsLoading(false);
-        toast.error("Falha ao carregar biblioteca XLSX");
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Falha ao carregar biblioteca XLSX"
+        });
       };
       document.body.appendChild(script);
     } else {
@@ -103,10 +137,15 @@ const Reports = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setUseExampleData(false);
       
       // Verificar se a biblioteca XLSX está carregada
       if (!window.XLSX) {
-        toast.error("Biblioteca Excel não carregada. Por favor, atualize a página.");
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Biblioteca Excel não carregada. Por favor, atualize a página."
+        });
         setError("Biblioteca Excel não carregada");
         return;
       }
@@ -117,6 +156,18 @@ const Reports = () => {
       
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      
+      // Verificar se o conteúdo contém "This is a placeholder"
+      if (text.includes("This is a placeholder")) {
+        setError("Arquivo Excel contém dados de placeholder. Por favor, faça upload do arquivo Excel real.");
+        setIsLoading(false);
+        
+        // Use dados de exemplo para demonstração
+        processOrderDataFromExample();
+        return;
       }
       
       const arrayBuffer = await response.arrayBuffer();
@@ -136,7 +187,10 @@ const Reports = () => {
       // Processar os dados para os gráficos
       if (Array.isArray(jsonData) && jsonData.length > 0) {
         processOrderData(jsonData);
-        toast.success("Dados do relatório carregados com sucesso");
+        toast({
+          title: "Sucesso",
+          description: "Dados do relatório carregados com sucesso"
+        });
       } else {
         throw new Error("Formato de dados inválido ou vazio");
       }
@@ -144,17 +198,98 @@ const Reports = () => {
     } catch (error) {
       console.error("Erro ao processar dados do Excel:", error);
       setError(`Falha ao carregar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      toast.error(`Falha ao carregar dados do relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: `Falha ao carregar dados do relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+      });
+      
+      // Use dados de exemplo para demonstração
+      processOrderDataFromExample();
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função para processar dados de exemplo quando o arquivo real não está disponível
+  const processOrderDataFromExample = () => {
+    setUseExampleData(true);
+    
+    // Usar dados de exemplo para demonstração
+    const orders = [...EXAMPLE_DATA];
+    setOrderData(orders);
+    
+    // Processar dados para o gráfico de pizza (status)
+    const statusCounts: Record<string, number> = {};
+    orders.forEach(order => {
+      statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
+    });
+    
+    const statusChartData = Object.keys(statusCounts).map(status => ({
+      name: status,
+      value: statusCounts[status],
+      color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || "#9b87f5"
+    }));
+    
+    setStatusData(statusChartData);
+    
+    // Processar dados para o gráfico de barras (datas)
+    const dateGroups: Record<string, { orders: number, value: number }> = {};
+    orders.forEach(order => {
+      if (!dateGroups[order.purchaseDate]) {
+        dateGroups[order.purchaseDate] = { orders: 0, value: 0 };
+      }
+      dateGroups[order.purchaseDate].orders += 1;
+      dateGroups[order.purchaseDate].value += order.price;
+    });
+    
+    const dateChartData = Object.keys(dateGroups)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+      .map(date => ({
+        date,
+        orders: dateGroups[date].orders,
+        value: Math.round(dateGroups[date].value * 100) / 100
+      }));
+    
+    setDateData(dateChartData);
+    
+    // Processar ranking de produtos
+    const productData: Record<string, { quantity: number, totalValue: number }> = {};
+    orders.forEach(order => {
+      if (!productData[order.product]) {
+        productData[order.product] = { quantity: 0, totalValue: 0 };
+      }
+      productData[order.product].quantity += 1;
+      productData[order.product].totalValue += order.price;
+    });
+    
+    const productsRanked = Object.keys(productData)
+      .map(name => ({
+        name,
+        quantity: productData[name].quantity,
+        totalValue: Math.round(productData[name].totalValue * 100) / 100
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 10);
+    
+    setTopProducts(productsRanked);
+    
+    // Calcular faturamento total
+    const revenue = orders.reduce((sum, order) => sum + order.price, 0);
+    setTotalRevenue(Math.round(revenue * 100) / 100);
   };
 
   // Mapeia os dados do Excel para os campos corretos baseado nas linhas específicas
   const processOrderData = (data: any[][]) => {
     if (!Array.isArray(data) || data.length < 23) {
       setError("Formato de dados inválido ou incompleto");
-      toast.error("Formato de dados inválido ou incompleto");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Formato de dados inválido ou incompleto"
+      });
+      // Use dados de exemplo para demonstração
+      processOrderDataFromExample();
       return;
     }
     
@@ -172,7 +307,13 @@ const Reports = () => {
         { status: !!data[STATUS_ROW], date: !!data[PURCHASE_DATE_ROW], 
           product: !!data[PRODUCT_ROW], price: !!data[PRICE_ROW] });
       setError("Dados incompletos na planilha");
-      toast.error("Dados incompletos na planilha");
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Dados incompletos na planilha"
+      });
+      // Use dados de exemplo para demonstração
+      processOrderDataFromExample();
       return;
     }
     
@@ -219,6 +360,12 @@ const Reports = () => {
     }
     
     console.log("Processed orders:", orders);
+    
+    // Se não houver pedidos processados, use dados de exemplo
+    if (orders.length === 0) {
+      processOrderDataFromExample();
+      return;
+    }
     
     // Atualizar o estado com os pedidos processados
     setOrderData(orders);
@@ -346,6 +493,17 @@ const Reports = () => {
           </Button>
         </div>
         
+        {useExampleData && (
+          <Alert variant="warning" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Usando dados de exemplo</AlertTitle>
+            <AlertDescription>
+              O sistema está usando dados de exemplo para demonstração. Para visualizar dados reais, 
+              faça upload de uma planilha Excel válida em /public/examples/orders.xlsx.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -435,9 +593,14 @@ const Reports = () => {
                       ) : error ? (
                         <div className="text-center space-y-2">
                           <p className="text-destructive">{error}</p>
-                          <Button size="sm" variant="outline" onClick={handleRefresh}>
-                            Tentar novamente
-                          </Button>
+                          <div className="flex gap-2 justify-center mt-2">
+                            <Button size="sm" variant="outline" onClick={handleRefresh}>
+                              Tentar novamente
+                            </Button>
+                            <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
+                              Usar dados de exemplo
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="text-center space-y-2">
@@ -507,9 +670,14 @@ const Reports = () => {
                       ) : error ? (
                         <div className="text-center space-y-2">
                           <p className="text-destructive">{error}</p>
-                          <Button size="sm" variant="outline" onClick={handleRefresh}>
-                            Tentar novamente
-                          </Button>
+                          <div className="flex gap-2 justify-center mt-2">
+                            <Button size="sm" variant="outline" onClick={handleRefresh}>
+                              Tentar novamente
+                            </Button>
+                            <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
+                              Usar dados de exemplo
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="text-center space-y-2">
@@ -550,7 +718,7 @@ const Reports = () => {
                     {topProducts.map((product, index) => (
                       <TableRow key={product.name}>
                         <TableCell className="font-medium">
-                          <Badge variant={index < 3 ? "success" : "secondary"}>
+                          <Badge variant={index < 3 ? "default" : "secondary"}>
                             #{index + 1}
                           </Badge>
                         </TableCell>
@@ -572,9 +740,14 @@ const Reports = () => {
                           {error ? (
                             <div className="space-y-2">
                               <p className="text-destructive">{error}</p>
-                              <Button size="sm" variant="outline" onClick={handleRefresh}>
-                                Tentar novamente
-                              </Button>
+                              <div className="flex gap-2 justify-center mt-2">
+                                <Button size="sm" variant="outline" onClick={handleRefresh}>
+                                  Tentar novamente
+                                </Button>
+                                <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
+                                  Usar dados de exemplo
+                                </Button>
+                              </div>
                             </div>
                           ) : (
                             <div className="space-y-2">
