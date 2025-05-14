@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
@@ -115,11 +114,9 @@ const Reports = () => {
   const [error, setError] = useState<string | null>(null);
   const [useExampleData, setUseExampleData] = useState(false);
 
-  // Índices para as colunas do Excel (mesmos usados no Dashboard)
+  // Índices para as colunas do Excel (atualizados para corresponder ao Dashboard)
   const STATUS_INDEX = 17;  // Status do pedido
-  const NAME_INDEX = 4;     // Nome do produto
-  const PHONE_INDEX = 6;    // Não usado no relatório
-  const CODE_INDEX = 35;    // Código de rastreio
+  const NAME_INDEX = 3;     // Nome do produto (atualizado para linha 3)
   const PRICE_INDEX = 19;   // Valor do pedido
   const PURCHASE_DATE_INDEX = 22;  // Data de compra
 
@@ -698,4 +695,3 @@ const Reports = () => {
 };
 
 export default Reports;
-
