@@ -1,63 +1,46 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import LandingPage from "./pages/LandingPage";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-import Reports from "./pages/Reports";
-import Orders from "./pages/Orders";
-import { useEffect } from "react";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toaster";
 
-// Carregar o script do XLSX para funcionar com o código existente
-const loadXlsx = () => {
-  const script = document.createElement('script');
-  script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-  script.async = true;
-  document.body.appendChild(script);
-};
+import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
+import Reports from "./pages/Reports";
+import Profile from "./pages/Profile";
+import Orders from "./pages/Orders";
+import Tracking from "./pages/Tracking";
+import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import LandingPage from "./pages/LandingPage";
+import NotFound from "./pages/NotFound";
+
+import "./App.css";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  useEffect(() => {
-    loadXlsx();
-    
-    // Inicializa fonte do Google (Inter)
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-    
-    // Atualiza título da página
-    document.title = "TrackMaster | Sistema de Gerenciamento de Clientes";
-  }, []);
-  
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <Router>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/index" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/tracking" element={<Tracking />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/login" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+          <Toaster />
+        </Router>
+      </ThemeProvider>
     </QueryClientProvider>
   );
-};
+}
 
 export default App;
