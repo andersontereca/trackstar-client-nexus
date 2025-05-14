@@ -67,6 +67,13 @@ const STATUS_COLORS = {
   "Cancelado": "#F97316",
   "Devolvido": "#ea384c",
   "Pendente": "#D946EF",
+  "Agendado": "#0082C8",
+  "Pagamento Aprovado": "#008000",
+  "Aguardando Pagamento": "#FFD700",
+  "Em Análise": "#FFA500",
+  "Estorno Pendente": "#FF4500",
+  "Chargeback": "#FF0000",
+  "Frustrada": "#8B0000",
 };
 
 // Dados de exemplo para quando não há dados disponíveis
@@ -108,15 +115,38 @@ const Reports = () => {
   const [error, setError] = useState<string | null>(null);
   const [useExampleData, setUseExampleData] = useState(false);
 
+  // Índices para as colunas do Excel (mesmos usados no Dashboard)
+  const STATUS_INDEX = 17;  // Status do pedido
+  const NAME_INDEX = 4;     // Nome do produto
+  const PHONE_INDEX = 6;    // Não usado no relatório
+  const CODE_INDEX = 35;    // Código de rastreio
+  const PRICE_INDEX = 19;   // Valor do pedido
+  const PURCHASE_DATE_INDEX = 22;  // Data de compra
+
   useEffect(() => {
-    // Load XLSX library dynamically if it's not already loaded
+    // Verificar se há dados no localStorage (como o Dashboard faz)
+    const savedData = localStorage.getItem('clientData');
+    if (savedData) {
+      try {
+        console.log("Dados encontrados no localStorage, processando...");
+        const parsedData = JSON.parse(savedData);
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          processClientDataFromLocalStorage(parsedData);
+          return;
+        }
+      } catch (error) {
+        console.error("Erro ao processar dados do localStorage:", error);
+      }
+    }
+    
+    // Se não houver dados no localStorage, carregue a biblioteca XLSX
     if (!window.XLSX) {
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js';
       script.async = true;
       script.onload = () => {
         console.log("XLSX library loaded");
-        processExcelData();
+        loadExcelFile();
       };
       script.onerror = () => {
         setError("Falha ao carregar biblioteca XLSX");
@@ -129,45 +159,90 @@ const Reports = () => {
       };
       document.body.appendChild(script);
     } else {
-      processExcelData();
+      loadExcelFile();
     }
   }, [refreshTrigger]);
 
-  const processExcelData = async () => {
+  // Nova função para processar dados do localStorage (como Dashboard faz)
+  const processClientDataFromLocalStorage = (data: any[][]) => {
     try {
       setIsLoading(true);
       setError(null);
       setUseExampleData(false);
       
-      // Verificar se a biblioteca XLSX está carregada
-      if (!window.XLSX) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Biblioteca Excel não carregada. Por favor, atualize a página."
-        });
-        setError("Biblioteca Excel não carregada");
-        return;
+      console.log("Processando dados do localStorage...");
+      
+      if (!Array.isArray(data) || data.length < 2) {
+        throw new Error("Formato de dados inválido ou vazio");
       }
+      
+      // Inicializar arrays para armazenar dados processados
+      const orders: OrderData[] = [];
+      
+      // A primeira linha geralmente contém os cabeçalhos
+      // Processar cada linha a partir da segunda linha (índice 1)
+      for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+        const row = data[rowIndex];
+        if (!row || !Array.isArray(row)) continue;
+        
+        // Extrair dados das colunas específicas
+        const status = row[STATUS_INDEX];
+        const productName = row[NAME_INDEX];
+        const price = row[PRICE_INDEX];
+        const purchaseDate = row[PURCHASE_DATE_INDEX];
+        
+        // Verificar se temos dados válidos antes de adicionar
+        if (status || productName) {
+          const order: OrderData = {
+            status: status?.toString() || 'Pendente',
+            purchaseDate: formatDate(purchaseDate),
+            product: productName?.toString() || 'Desconhecido',
+            price: typeof price === 'number' ? price : 
+                 (typeof price === 'string' ? parseFloat(price.replace(/[^\d.,]/g, '').replace(',', '.')) : 0)
+          };
+          orders.push(order);
+        }
+      }
+      
+      console.log("Pedidos processados do localStorage:", orders.length);
+      
+      if (orders.length === 0) {
+        throw new Error("Nenhum pedido encontrado nos dados");
+      }
+      
+      // Atualizar o estado com os pedidos processados
+      setOrderData(orders);
+      processOrdersForCharts(orders);
+      setIsLoading(false);
+      toast({
+        title: "Sucesso",
+        description: "Dados do relatório carregados com sucesso"
+      });
+      
+    } catch (error) {
+      console.error("Erro ao processar dados:", error);
+      setError(`Falha ao carregar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      setIsLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: `Falha ao processar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+      });
+    }
+  };
 
+  const loadExcelFile = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setUseExampleData(false);
+      
       console.log("Fetching Excel file...");
       // Buscar o arquivo Excel
       const response = await fetch('/examples/orders.xlsx');
       
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      const text = await response.text();
-      
-      // Verificar se o conteúdo contém "This is a placeholder"
-      if (text.includes("This is a placeholder")) {
-        setError("Arquivo Excel contém dados de placeholder. Por favor, faça upload do arquivo Excel real.");
-        setIsLoading(false);
-        
-        // Use dados de exemplo para demonstração
-        processOrderDataFromExample();
-        return;
       }
       
       const arrayBuffer = await response.arrayBuffer();
@@ -182,15 +257,13 @@ const Reports = () => {
       
       // Converter para JSON para processamento
       const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      console.log("Excel data converted to JSON:", jsonData);
+      console.log("Excel data converted to JSON");
       
       // Processar os dados para os gráficos
       if (Array.isArray(jsonData) && jsonData.length > 0) {
-        processOrderData(jsonData);
-        toast({
-          title: "Sucesso",
-          description: "Dados do relatório carregados com sucesso"
-        });
+        // Salvar no localStorage como o Dashboard faz
+        localStorage.setItem('clientData', JSON.stringify(jsonData));
+        processClientDataFromLocalStorage(jsonData);
       } else {
         throw new Error("Formato de dados inválido ou vazio");
       }
@@ -198,16 +271,15 @@ const Reports = () => {
     } catch (error) {
       console.error("Erro ao processar dados do Excel:", error);
       setError(`Falha ao carregar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      setIsLoading(false);
       toast({
         variant: "destructive",
         title: "Erro",
         description: `Falha ao carregar dados do relatório: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
       });
       
-      // Use dados de exemplo para demonstração
+      // Use dados de exemplo para demonstração se não conseguir carregar
       processOrderDataFromExample();
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -219,157 +291,12 @@ const Reports = () => {
     const orders = [...EXAMPLE_DATA];
     setOrderData(orders);
     
-    // Processar dados para o gráfico de pizza (status)
-    const statusCounts: Record<string, number> = {};
-    orders.forEach(order => {
-      statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
-    });
-    
-    const statusChartData = Object.keys(statusCounts).map(status => ({
-      name: status,
-      value: statusCounts[status],
-      color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || "#9b87f5"
-    }));
-    
-    setStatusData(statusChartData);
-    
-    // Processar dados para o gráfico de barras (datas)
-    const dateGroups: Record<string, { orders: number, value: number }> = {};
-    orders.forEach(order => {
-      if (!dateGroups[order.purchaseDate]) {
-        dateGroups[order.purchaseDate] = { orders: 0, value: 0 };
-      }
-      dateGroups[order.purchaseDate].orders += 1;
-      dateGroups[order.purchaseDate].value += order.price;
-    });
-    
-    const dateChartData = Object.keys(dateGroups)
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-      .map(date => ({
-        date,
-        orders: dateGroups[date].orders,
-        value: Math.round(dateGroups[date].value * 100) / 100
-      }));
-    
-    setDateData(dateChartData);
-    
-    // Processar ranking de produtos
-    const productData: Record<string, { quantity: number, totalValue: number }> = {};
-    orders.forEach(order => {
-      if (!productData[order.product]) {
-        productData[order.product] = { quantity: 0, totalValue: 0 };
-      }
-      productData[order.product].quantity += 1;
-      productData[order.product].totalValue += order.price;
-    });
-    
-    const productsRanked = Object.keys(productData)
-      .map(name => ({
-        name,
-        quantity: productData[name].quantity,
-        totalValue: Math.round(productData[name].totalValue * 100) / 100
-      }))
-      .sort((a, b) => b.totalValue - a.totalValue)
-      .slice(0, 10);
-    
-    setTopProducts(productsRanked);
-    
-    // Calcular faturamento total
-    const revenue = orders.reduce((sum, order) => sum + order.price, 0);
-    setTotalRevenue(Math.round(revenue * 100) / 100);
+    // Processar os dados para os gráficos
+    processOrdersForCharts(orders);
   };
-
-  // Mapeia os dados do Excel para os campos corretos baseado nas linhas específicas
-  const processOrderData = (data: any[][]) => {
-    if (!Array.isArray(data) || data.length < 23) {
-      setError("Formato de dados inválido ou incompleto");
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Formato de dados inválido ou incompleto"
-      });
-      // Use dados de exemplo para demonstração
-      processOrderDataFromExample();
-      return;
-    }
-    
-    console.log("Processing order data from Excel...");
-    
-    // Índices específicos para os dados
-    const STATUS_ROW = 14;  // linha 14 para Status
-    const PURCHASE_DATE_ROW = 22; // linha 22 para Data de Compra
-    const PRODUCT_ROW = 4; // linha 4 para Produto 
-    const PRICE_ROW = 19; // linha 19 para Valor
-    
-    // Verificar se todas as linhas necessárias existem
-    if (!data[STATUS_ROW] || !data[PURCHASE_DATE_ROW] || !data[PRODUCT_ROW] || !data[PRICE_ROW]) {
-      console.error("Missing required rows in Excel data:", 
-        { status: !!data[STATUS_ROW], date: !!data[PURCHASE_DATE_ROW], 
-          product: !!data[PRODUCT_ROW], price: !!data[PRICE_ROW] });
-      setError("Dados incompletos na planilha");
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Dados incompletos na planilha"
-      });
-      // Use dados de exemplo para demonstração
-      processOrderDataFromExample();
-      return;
-    }
-    
-    // Inicializar arrays para armazenar dados processados
-    const orders: OrderData[] = [];
-    
-    console.log("STATUS_ROW data:", data[STATUS_ROW]);
-    console.log("PRODUCT_ROW data:", data[PRODUCT_ROW]);
-    console.log("PRICE_ROW data:", data[PRICE_ROW]);
-    console.log("PURCHASE_DATE_ROW data:", data[PURCHASE_DATE_ROW]);
-    
-    // Processar cada coluna (registro) a partir da segunda coluna
-    // Cada coluna representa um pedido diferente
-    for (let colIndex = 1; colIndex < Math.max(
-      data[STATUS_ROW]?.length || 0, 
-      data[PRODUCT_ROW]?.length || 0,
-      data[PRICE_ROW]?.length || 0,
-      data[PURCHASE_DATE_ROW]?.length || 0
-    ); colIndex++) {
-      // Extrair dados das linhas específicas para cada pedido
-      const statusValue = data[STATUS_ROW] && data[STATUS_ROW][colIndex];
-      const purchaseDateValue = data[PURCHASE_DATE_ROW] && data[PURCHASE_DATE_ROW][colIndex];
-      const productValue = data[PRODUCT_ROW] && data[PRODUCT_ROW][colIndex];
-      const priceValue = data[PRICE_ROW] && data[PRICE_ROW][colIndex];
-      
-      console.log(`Column ${colIndex}:`, { 
-        status: statusValue, 
-        date: purchaseDateValue,
-        product: productValue, 
-        price: priceValue 
-      });
-      
-      // Verificar se temos dados válidos antes de adicionar
-      if (statusValue || productValue || purchaseDateValue) {
-        const order: OrderData = {
-          status: statusValue?.toString() || 'Pendente',
-          purchaseDate: formatDate(purchaseDateValue),
-          product: productValue?.toString() || 'Desconhecido',
-          price: typeof priceValue === 'number' ? priceValue : 
-                 (typeof priceValue === 'string' ? parseFloat(priceValue.replace(/[^\d.,]/g, '').replace(',', '.')) : 0)
-        };
-        orders.push(order);
-      }
-    }
-    
-    console.log("Processed orders:", orders);
-    
-    // Se não houver pedidos processados, use dados de exemplo
-    if (orders.length === 0) {
-      processOrderDataFromExample();
-      return;
-    }
-    
-    // Atualizar o estado com os pedidos processados
-    setOrderData(orders);
-    
+  
+  // Função centralizada para processar pedidos para os gráficos
+  const processOrdersForCharts = (orders: OrderData[]) => {
     // Processar dados para o gráfico de pizza (status)
     const statusCounts: Record<string, number> = {};
     orders.forEach(order => {
@@ -436,8 +363,6 @@ const Reports = () => {
 
   // Função para formatar a data do Excel
   const formatDate = (excelDate: any): string => {
-    console.log("Formatting date:", excelDate, "Type:", typeof excelDate);
-    
     // Se já for uma string formatada, retornar
     if (typeof excelDate === 'string') {
       // Tentar formatar se for uma data válida
@@ -494,12 +419,12 @@ const Reports = () => {
         </div>
         
         {useExampleData && (
-          <Alert variant="warning" className="mb-6">
+          <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Usando dados de exemplo</AlertTitle>
             <AlertDescription>
               O sistema está usando dados de exemplo para demonstração. Para visualizar dados reais, 
-              faça upload de uma planilha Excel válida em /public/examples/orders.xlsx.
+              importe uma planilha Excel no Dashboard.
             </AlertDescription>
           </Alert>
         )}
@@ -597,9 +522,6 @@ const Reports = () => {
                             <Button size="sm" variant="outline" onClick={handleRefresh}>
                               Tentar novamente
                             </Button>
-                            <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
-                              Usar dados de exemplo
-                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -607,7 +529,7 @@ const Reports = () => {
                           <p>Não há dados disponíveis</p>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <FileSpreadsheet size={16} />
-                            <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                            <span>Importe uma planilha Excel no Dashboard para visualizar os dados</span>
                           </div>
                         </div>
                       )}
@@ -674,9 +596,6 @@ const Reports = () => {
                             <Button size="sm" variant="outline" onClick={handleRefresh}>
                               Tentar novamente
                             </Button>
-                            <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
-                              Usar dados de exemplo
-                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -684,7 +603,7 @@ const Reports = () => {
                           <p>Não há dados disponíveis</p>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <FileSpreadsheet size={16} />
-                            <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                            <span>Importe uma planilha Excel no Dashboard para visualizar os dados</span>
                           </div>
                         </div>
                       )}
@@ -744,9 +663,6 @@ const Reports = () => {
                                 <Button size="sm" variant="outline" onClick={handleRefresh}>
                                   Tentar novamente
                                 </Button>
-                                <Button size="sm" variant="default" onClick={() => processOrderDataFromExample()}>
-                                  Usar dados de exemplo
-                                </Button>
                               </div>
                             </div>
                           ) : (
@@ -754,7 +670,7 @@ const Reports = () => {
                               <p>Nenhum dado de produto disponível</p>
                               <div className="flex justify-center items-center gap-2 text-sm">
                                 <FileSpreadsheet size={16} />
-                                <span>Faça upload de uma planilha Excel em /public/examples/orders.xlsx</span>
+                                <span>Importe uma planilha Excel no Dashboard para visualizar os dados</span>
                               </div>
                             </div>
                           )}
@@ -782,3 +698,4 @@ const Reports = () => {
 };
 
 export default Reports;
+
