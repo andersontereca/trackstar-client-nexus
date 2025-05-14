@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Reports from "./pages/Reports";
+import Orders from "./pages/Orders";
 import { useEffect } from "react";
 
 // Carregar o script do XLSX para funcionar com o código existente
@@ -50,6 +51,7 @@ const App = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

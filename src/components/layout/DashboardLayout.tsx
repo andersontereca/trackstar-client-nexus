@@ -102,7 +102,7 @@ const DashboardLayout = ({
             <div className="space-y-1 px-2">
               {[
                 { icon: <Home size={18} />, text: "Dashboard", path: "/dashboard" },
-                { icon: <Package size={18} />, text: "Pedidos", path: "/dashboard" },
+                { icon: <Package size={18} />, text: "Pedidos", path: "/orders" },
                 { icon: <Users size={18} />, text: "Clientes", path: "/dashboard" },
                 { icon: <Activity size={18} />, text: "Rastreamento", path: "/dashboard" },
                 { icon: <BarChart size={18} />, text: "Relatórios", path: "/reports" },
